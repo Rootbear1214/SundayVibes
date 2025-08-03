@@ -7,7 +7,19 @@ class Player {
         this.velocityX = 0;
         this.velocityY = 0;
         this.onGround = false;
-        this.color = '#9f00fbff'; // Green color
+        this.color = '#9f00fbff'; // Green color (fallback)
+        
+        // Load kitty sprite
+        this.sprite = new Image();
+        this.sprite.src = 'kitty.png';
+        this.spriteLoaded = false;
+        this.sprite.onload = () => {
+            this.spriteLoaded = true;
+            console.log('Kitty sprite loaded successfully!');
+        };
+        this.sprite.onerror = () => {
+            console.error('Failed to load kitty sprite, using fallback rectangle');
+        };
         
         // Combat properties
         this.punchCooldown = 0;
@@ -117,32 +129,67 @@ class Player {
                 return; // Skip rendering to create flashing effect
             }
             
-            ctx.fillStyle = this.color;
+            ctx.save();
             
-            // Change color slightly when attacking
+            // Apply visual effects for different states
             if (this.isAttacking) {
-                ctx.fillStyle = '#FF5722'; // Orange when attacking
+                // Orange tint when attacking
+                ctx.globalCompositeOperation = 'multiply';
+                ctx.fillStyle = '#FF5722';
+                ctx.fillRect(screenX, screenY, this.width, this.height);
+                ctx.globalCompositeOperation = 'source-over';
+            } else if (this.invulnerable) {
+                // Red tint when invulnerable
+                ctx.globalCompositeOperation = 'multiply';
+                ctx.fillStyle = '#FF9999';
+                ctx.fillRect(screenX, screenY, this.width, this.height);
+                ctx.globalCompositeOperation = 'source-over';
             }
             
-            // Change color when invulnerable
-            if (this.invulnerable) {
-                ctx.fillStyle = '#FF9999'; // Light red when invulnerable
-            }
-            
-            ctx.fillRect(screenX, screenY, this.width, this.height);
-            
-            // Draw a simple face/direction indicator
-            ctx.fillStyle = '#2E7D32'; // Darker green
-            const eyeSize = 4;
-            const eyeY = screenY + 8;
-            
-            if (this.facing === 1) {
-                // Facing right
-                ctx.fillRect(screenX + this.width - 12, eyeY, eyeSize, eyeSize);
+            if (this.spriteLoaded) {
+                // Draw kitty sprite
+                ctx.save();
+                
+                // Flip sprite horizontally if facing left
+                if (this.facing === -1) {
+                    ctx.scale(-1, 1);
+                    ctx.drawImage(this.sprite, -screenX - this.width, screenY, this.width, this.height);
+                } else {
+                    ctx.drawImage(this.sprite, screenX, screenY, this.width, this.height);
+                }
+                
+                ctx.restore();
             } else {
-                // Facing left
-                ctx.fillRect(screenX + 8, eyeY, eyeSize, eyeSize);
+                // Fallback rectangle if sprite not loaded
+                ctx.fillStyle = this.color;
+                
+                // Change color slightly when attacking
+                if (this.isAttacking) {
+                    ctx.fillStyle = '#FF5722'; // Orange when attacking
+                }
+                
+                // Change color when invulnerable
+                if (this.invulnerable) {
+                    ctx.fillStyle = '#FF9999'; // Light red when invulnerable
+                }
+                
+                ctx.fillRect(screenX, screenY, this.width, this.height);
+                
+                // Draw a simple face/direction indicator
+                ctx.fillStyle = '#2E7D32'; // Darker green
+                const eyeSize = 4;
+                const eyeY = screenY + 8;
+                
+                if (this.facing === 1) {
+                    // Facing right
+                    ctx.fillRect(screenX + this.width - 12, eyeY, eyeSize, eyeSize);
+                } else {
+                    // Facing left
+                    ctx.fillRect(screenX + 8, eyeY, eyeSize, eyeSize);
+                }
             }
+            
+            ctx.restore();
         }
     }
 
