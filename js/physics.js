@@ -83,12 +83,7 @@ class Physics {
             object.velocityX = 0;
         }
 
-        // Vertical bounds (falling off the world)
-        if (object.y > worldHeight) {
-            // Reset to spawn point or handle death
-            object.y = worldHeight - object.height;
-            object.velocityY = 0;
-            object.onGround = true;
-        }
+        // Don't prevent vertical falling - let the game's death system handle it
+        // The death zone check in main.js will trigger when player falls too far
     }
 }

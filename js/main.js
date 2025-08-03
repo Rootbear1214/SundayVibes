@@ -22,6 +22,12 @@ class Game {
         this.fps = 60;
         this.frameInterval = 1000 / this.fps;
         
+        // Death system
+        this.deathZone = this.world.height + 50; // Death occurs 50px below world
+        this.isPlayerDead = false;
+        this.deathTimer = 0;
+        this.deathDuration = 60; // frames before respawn
+        
         // Debug info
         this.showDebug = false;
         this.frameCount = 0;
@@ -84,6 +90,15 @@ class Game {
     }
 
     update(deltaTime) {
+        // Handle death state
+        if (this.isPlayerDead) {
+            this.deathTimer++;
+            if (this.deathTimer >= this.deathDuration) {
+                this.respawnPlayer();
+            }
+            return; // Don't update game while player is dead
+        }
+
         // Update game objects
         this.player.update(this.input, this.physics);
         this.world.update();
@@ -95,9 +110,9 @@ class Game {
         this.camera.follow(this.player);
         this.camera.update();
         
-        // Check for player reset (fell off world)
-        if (this.player.y > this.world.height + 100) {
-            this.resetPlayer();
+        // Check for player death (fell into pit)
+        if (this.player.y > this.deathZone) {
+            this.killPlayer();
         }
     }
 
@@ -108,8 +123,15 @@ class Game {
         // Render world (includes background and platforms)
         this.world.render(this.ctx, this.camera);
         
-        // Render player
-        this.player.render(this.ctx, this.camera);
+        // Render player (unless dead)
+        if (!this.isPlayerDead) {
+            this.player.render(this.ctx, this.camera);
+        }
+        
+        // Render death overlay if player is dead
+        if (this.isPlayerDead) {
+            this.renderDeathOverlay();
+        }
         
         // Render UI
         this.renderUI();
@@ -118,6 +140,28 @@ class Game {
         if (this.showDebug) {
             this.renderDebug();
         }
+    }
+
+    renderDeathOverlay() {
+        this.ctx.save();
+        
+        // Dark red overlay with fade effect
+        const alpha = Math.min(0.7, this.deathTimer / 30);
+        this.ctx.fillStyle = `rgba(139, 0, 0, ${alpha})`;
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Death message
+        this.ctx.fillStyle = 'white';
+        this.ctx.font = 'bold 32px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('YOU DIED', this.canvas.width / 2, this.canvas.height / 2 - 20);
+        
+        // Respawn countdown
+        const timeLeft = Math.ceil((this.deathDuration - this.deathTimer) / 60);
+        this.ctx.font = '18px Arial';
+        this.ctx.fillText(`Respawning in ${timeLeft}...`, this.canvas.width / 2, this.canvas.height / 2 + 20);
+        
+        this.ctx.restore();
     }
 
     renderUI() {
@@ -185,9 +229,28 @@ class Game {
         this.ctx.restore();
     }
 
+    killPlayer() {
+        if (!this.isPlayerDead) {
+            this.isPlayerDead = true;
+            this.deathTimer = 0;
+            this.camera.shake(10, 20); // Screen shake on death
+            console.log('Player died! Respawning in ' + (this.deathDuration / 60).toFixed(1) + ' seconds...');
+        }
+    }
+
+    respawnPlayer() {
+        const spawn = this.world.getSpawnPosition();
+        this.player.reset(spawn.x, spawn.y);
+        this.isPlayerDead = false;
+        this.deathTimer = 0;
+        console.log('Player respawned at spawn position');
+    }
+
     resetPlayer() {
         const spawn = this.world.getSpawnPosition();
         this.player.reset(spawn.x, spawn.y);
+        this.isPlayerDead = false;
+        this.deathTimer = 0;
         console.log('Player reset to spawn position');
     }
 
