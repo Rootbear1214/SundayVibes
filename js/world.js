@@ -61,7 +61,7 @@ class World {
         this.width = 2400; // World is wider than screen for scrolling
         this.height = 600;
         this.spawnX = 100;
-        this.spawnY = 400;
+        this.spawnY = 510; // Just above the ground platform (550 - 40 player height)
         
         this.createInitialPlatforms();
     }

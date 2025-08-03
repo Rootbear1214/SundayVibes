@@ -21,9 +21,6 @@ class Player {
     }
 
     update(input, physics) {
-        // Reset ground state
-        this.onGround = false;
-        
         // Handle horizontal movement
         if (input.isLeftPressed()) {
             this.velocityX = -physics.moveSpeed;
