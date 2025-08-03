@@ -27,7 +27,7 @@ class Game {
         this.deathZone = this.world.height + 50; // Death occurs 50px below world
         this.isPlayerDead = false;
         this.deathTimer = 0;
-        this.deathDuration = 60; // frames before respawn
+        this.deathDuration = 220; // frames before respawn
         
         // Debug info
         this.showDebug = false;
@@ -111,6 +111,11 @@ class Game {
         // Handle collisions
         this.world.checkCollisions(this.player, this.physics);
         
+        // Check for player death from health loss
+        if (this.player.isDead()) {
+            this.killPlayer();
+        }
+        
         // Update camera to follow player
         this.camera.follow(this.player);
         this.camera.update();
@@ -143,6 +148,9 @@ class Game {
         
         // Render UI
         this.renderUI();
+        
+        // Render health hearts
+        this.renderHealthUI();
         
         // Render debug info if enabled
         if (this.showDebug) {
@@ -197,6 +205,66 @@ class Game {
         
         // Restore context state
         this.ctx.restore();
+    }
+
+    renderHealthUI() {
+        this.ctx.save();
+        
+        const heartSize = 24;
+        const heartSpacing = 30;
+        const startX = 20;
+        const startY = this.canvas.height - 40; // Bottom left area
+        
+        // Draw hearts for current health
+        for (let i = 0; i < this.player.maxHealth; i++) {
+            const x = startX + (i * heartSpacing);
+            const y = startY;
+            
+            if (i < this.player.health) {
+                // Full heart (red)
+                this.drawHeart(x, y, heartSize, '#FF0000');
+            } else {
+                // Empty heart (gray)
+                this.drawHeart(x, y, heartSize, '#666666');
+            }
+        }
+        
+        this.ctx.restore();
+    }
+    
+    drawHeart(x, y, size, color) {
+        this.ctx.fillStyle = color;
+        this.ctx.strokeStyle = '#000000';
+        this.ctx.lineWidth = 2;
+        
+        // Draw heart shape using path
+        this.ctx.beginPath();
+        
+        const centerX = x + size / 2;
+        const centerY = y + size / 2;
+        const width = size * 0.8;
+        const height = size * 0.8;
+        
+        // Heart shape using bezier curves
+        this.ctx.moveTo(centerX, centerY + height / 4);
+        
+        // Left curve
+        this.ctx.bezierCurveTo(
+            centerX - width / 2, centerY - height / 4,
+            centerX - width / 2, centerY - height / 2,
+            centerX, centerY - height / 8
+        );
+        
+        // Right curve
+        this.ctx.bezierCurveTo(
+            centerX + width / 2, centerY - height / 2,
+            centerX + width / 2, centerY - height / 4,
+            centerX, centerY + height / 4
+        );
+        
+        this.ctx.closePath();
+        this.ctx.fill();
+        this.ctx.stroke();
     }
 
     renderDebug() {
@@ -262,7 +330,12 @@ class Game {
         this.player.reset(spawn.x, spawn.y);
         this.isPlayerDead = false;
         this.deathTimer = 0;
-        console.log('Player respawned at spawn position');
+        
+        // Respawn all enemies when player dies
+        this.enemyManager.clearAllEnemies();
+        this.enemyManager.spawnEnemiesInWorld();
+        
+        console.log('Player respawned at spawn position - enemies respawned');
     }
 
     resetPlayer() {
@@ -270,7 +343,12 @@ class Game {
         this.player.reset(spawn.x, spawn.y);
         this.isPlayerDead = false;
         this.deathTimer = 0;
-        console.log('Player reset to spawn position');
+        
+        // Respawn all enemies when player resets
+        this.enemyManager.clearAllEnemies();
+        this.enemyManager.spawnEnemiesInWorld();
+        
+        console.log('Player reset to spawn position - enemies respawned');
     }
 
     // Public methods for external control

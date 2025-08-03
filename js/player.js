@@ -7,12 +7,19 @@ class Player {
         this.velocityX = 0;
         this.velocityY = 0;
         this.onGround = false;
-        this.color = '#4CAF50'; // Green color
+        this.color = '#9f00fbff'; // Green color
         
         // Combat properties
         this.punchCooldown = 0;
         this.rangedCooldown = 0;
         this.maxCooldown = 30; // frames
+        
+        // Health system
+        this.maxHealth = 3;
+        this.health = this.maxHealth;
+        this.invulnerable = false;
+        this.invulnerabilityTimer = 0;
+        this.invulnerabilityDuration = 120; // 2 seconds at 60fps
         
         // Animation state
         this.facing = 1; // 1 for right, -1 for left
@@ -86,6 +93,14 @@ class Player {
         } else {
             this.isAttacking = false;
         }
+        
+        // Update invulnerability timer
+        if (this.invulnerabilityTimer > 0) {
+            this.invulnerabilityTimer--;
+            if (this.invulnerabilityTimer <= 0) {
+                this.invulnerable = false;
+            }
+        }
     }
 
     render(ctx, camera) {
@@ -97,11 +112,21 @@ class Player {
         if (screenX + this.width >= 0 && screenX <= camera.width &&
             screenY + this.height >= 0 && screenY <= camera.height) {
             
+            // Flash effect when invulnerable
+            if (this.invulnerable && Math.floor(this.invulnerabilityTimer / 8) % 2 === 0) {
+                return; // Skip rendering to create flashing effect
+            }
+            
             ctx.fillStyle = this.color;
             
             // Change color slightly when attacking
             if (this.isAttacking) {
                 ctx.fillStyle = '#FF5722'; // Orange when attacking
+            }
+            
+            // Change color when invulnerable
+            if (this.invulnerable) {
+                ctx.fillStyle = '#FF9999'; // Light red when invulnerable
             }
             
             ctx.fillRect(screenX, screenY, this.width, this.height);
@@ -130,6 +155,36 @@ class Player {
         return this.y + this.height / 2;
     }
 
+    // Take damage from enemies
+    takeDamage(damage = 1) {
+        if (this.invulnerable || this.health <= 0) {
+            return false; // No damage taken
+        }
+        
+        this.health -= damage;
+        this.invulnerable = true;
+        this.invulnerabilityTimer = this.invulnerabilityDuration;
+        
+        console.log(`Player took ${damage} damage! Health: ${this.health}/${this.maxHealth}`);
+        
+        if (this.health <= 0) {
+            this.health = 0;
+            return true; // Player died
+        }
+        
+        return false; // Player survived
+    }
+    
+    // Check if player is dead
+    isDead() {
+        return this.health <= 0;
+    }
+    
+    // Heal player
+    heal(amount = 1) {
+        this.health = Math.min(this.maxHealth, this.health + amount);
+    }
+    
     // Reset player to spawn position
     reset(x, y) {
         this.x = x;
@@ -137,5 +192,8 @@ class Player {
         this.velocityX = 0;
         this.velocityY = 0;
         this.onGround = false;
+        this.health = this.maxHealth; // Reset health on respawn
+        this.invulnerable = false;
+        this.invulnerabilityTimer = 0;
     }
 }

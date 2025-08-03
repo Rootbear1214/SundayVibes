@@ -280,8 +280,11 @@ class EnemyManager {
             if (enemy.canAttackPlayer(player)) {
                 const damage = enemy.attackPlayer(player);
                 if (damage > 0) {
-                    // TODO: Implement player damage system
-                    console.log(`Player took ${damage} damage from ${enemy.type}!`);
+                    const playerDied = player.takeDamage(damage);
+                    if (playerDied) {
+                        console.log(`Player died from ${enemy.type} attack!`);
+                        return false; // Signal to main game that player died
+                    }
                 }
             }
             
