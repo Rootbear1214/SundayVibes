@@ -139,6 +139,8 @@ class Game {
         // Render player (unless dead)
         if (!this.isPlayerDead) {
             this.player.render(this.ctx, this.camera);
+            // Render magic blasts
+            this.player.renderMagicBlasts(this.ctx, this.camera);
         }
         
         // Render death overlay if player is dead
