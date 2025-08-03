@@ -19,17 +19,25 @@ class Platform {
     }
 
     loadSprites() {
-        // Load terrain sprites for underground theme
-        this.terrainSprite = new Image();
-        this.terrainSprite.src = '16x16 Underground Passage/Sprites/Terrain/Sprites_00.png';
-        this.terrainLoaded = false;
-        this.terrainSprite.onload = () => {
-            this.terrainLoaded = true;
+        // Load wall sprites for solid platforms
+        this.wallSprite = new Image();
+        this.wallSprite.src = 'sprites/world/Walls/Wall_center1.png';
+        this.wallLoaded = false;
+        this.wallSprite.onload = () => {
+            this.wallLoaded = true;
+        };
+        
+        // Load bridge sprites for jump-through platforms
+        this.bridgeSprite = new Image();
+        this.bridgeSprite.src = 'sprites/world/Bridge/bridge_span.png';
+        this.bridgeLoaded = false;
+        this.bridgeSprite.onload = () => {
+            this.bridgeLoaded = true;
         };
         
         // Load spike sprites
         this.spikeSprite = new Image();
-        this.spikeSprite.src = '16x16 Underground Passage/Sprites/Spikes/Spikes_01.png';
+        this.spikeSprite.src = 'sprites/world/Spikes/Spikes_up.png';
         this.spikeLoaded = false;
         this.spikeSprite.onload = () => {
             this.spikeLoaded = true;
@@ -75,13 +83,22 @@ class Platform {
                         ctx.drawImage(this.spikeSprite, screenX + x, screenY + y, tileSize, tileSize);
                     }
                 }
-            } else if (this.terrainLoaded && this.type !== 'spikes') {
-                // Render stone platforms using terrain sprite
+            } else if (this.type === 'jumpthrough' && this.bridgeLoaded) {
+                // Render jump-through platforms using bridge sprites
                 ctx.imageSmoothingEnabled = false;
                 const tileSize = 16;
                 for (let x = 0; x < this.width; x += tileSize) {
                     for (let y = 0; y < this.height; y += tileSize) {
-                        ctx.drawImage(this.terrainSprite, screenX + x, screenY + y, tileSize, tileSize);
+                        ctx.drawImage(this.bridgeSprite, screenX + x, screenY + y, tileSize, tileSize);
+                    }
+                }
+            } else if ((this.type === 'solid' || this.type === 'moving' || this.type === 'breakable') && this.wallLoaded) {
+                // Render solid/clipping platforms using wall sprites
+                ctx.imageSmoothingEnabled = false;
+                const tileSize = 16;
+                for (let x = 0; x < this.width; x += tileSize) {
+                    for (let y = 0; y < this.height; y += tileSize) {
+                        ctx.drawImage(this.wallSprite, screenX + x, screenY + y, tileSize, tileSize);
                     }
                 }
             } else {
@@ -113,20 +130,25 @@ class World {
 
     loadBackgroundSprites() {
         this.backgroundSprites = [];
-        // Load multiple background layers for depth
-        for (let i = 1; i <= 14; i++) {
-            const bg = new Image();
-            bg.src = `16x16 Underground Passage/Sprites/Background/BG_${i.toString().padStart(2, '0')}.png`;
-            this.backgroundSprites.push(bg);
-        }
+        // Load background sprites from new world structure
+        const bgFiles = ['BG_center.png', 'BG_top.png', 'BG_bottom.png', 'BG_left.png', 'BG_right.png', 
+                        'BG_top_left.png', 'BG_top_right.png', 'BG_bottom_left.png', 'BG_bottom_right.png'];
         
-        // Load pillar sprites
+        bgFiles.forEach(filename => {
+            const bg = new Image();
+            bg.src = `sprites/world/Background/${filename}`;
+            this.backgroundSprites.push(bg);
+        });
+        
+        // Load pillar sprites from new world structure
         this.pillarSprites = [];
-        for (let i = 1; i <= 5; i++) {
+        const pillarFiles = ['Pillar_top.png', 'Pillar_middle1.png', 'Pillar_middle2.png', 'Pillar_bottom.png', 'Pillar_top_broken.png'];
+        
+        pillarFiles.forEach(filename => {
             const pillar = new Image();
-            pillar.src = `16x16 Underground Passage/Sprites/Pillars/Pillar_${i.toString().padStart(2, '0')}.png`;
+            pillar.src = `sprites/world/Pillars/${filename}`;
             this.pillarSprites.push(pillar);
-        }
+        });
     }
 
     createUndergroundPassage() {
