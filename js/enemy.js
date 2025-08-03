@@ -240,11 +240,11 @@ class Enemy {
             return false;
         }
         
-        // Check if player is close enough and facing the enemy
+        // Check if player is close enough and facing the enemy - BIGGER HIT BOX
         const distance = Math.abs(this.getCenterX() - player.getCenterX());
         const verticalDistance = Math.abs(this.getCenterY() - player.getCenterY());
         
-        if (distance < 40 && verticalDistance < 30) {
+        if (distance < 80 && verticalDistance < 50) { // Increased from 40x30 to 80x50
             // Check if player is facing the enemy
             const playerFacingEnemy = (player.facing > 0 && this.x > player.x) || 
                                     (player.facing < 0 && this.x < player.x);
@@ -288,8 +288,17 @@ class EnemyManager {
                 }
             }
             
-            // Check if player attacks enemy
+            // Check if player attacks enemy (melee)
             enemy.checkPlayerAttack(player);
+            
+            // Check if magic blasts hit enemy (ranged)
+            player.magicBlasts.forEach(blast => {
+                if (blast.active && blast.checkCollision(enemy) && !enemy.isDead) {
+                    enemy.takeDamage(1);
+                    blast.destroy(); // Destroy blast on hit
+                    console.log(`${enemy.type} hit by magic blast!`);
+                }
+            });
             
             return shouldKeep;
         });

@@ -33,6 +33,7 @@ class Physics {
 
     // Resolve collision between player and platform
     resolveCollision(player, platform) {
+        // Calculate overlaps more precisely
         const overlapX = Math.min(
             (player.x + player.width) - platform.x,
             (platform.x + platform.width) - player.x
@@ -42,34 +43,49 @@ class Physics {
             (platform.y + platform.height) - player.y
         );
 
+        // Add small buffer to prevent floating point precision issues
+        const buffer = 0.1;
+
         // Resolve collision based on smallest overlap
         if (overlapX < overlapY) {
             // Horizontal collision
             if (player.x < platform.x) {
-                player.x = platform.x - player.width;
+                player.x = platform.x - player.width - buffer;
             } else {
-                player.x = platform.x + platform.width;
+                player.x = platform.x + platform.width + buffer;
             }
             player.velocityX = 0;
         } else {
             // Vertical collision
             if (player.y < platform.y) {
-                // Player is above platform
-                player.y = platform.y - player.height;
+                // Player is above platform (landing on top)
+                player.y = platform.y - player.height - buffer;
                 player.velocityY = 0;
                 player.onGround = true;
             } else {
-                // Player is below platform
-                player.y = platform.y + platform.height;
+                // Player is below platform (hitting from below)
+                player.y = platform.y + platform.height + buffer;
                 player.velocityY = 0;
             }
         }
     }
 
-    // Update object position based on velocity
+    // Update object position based on velocity with collision prevention
     updatePosition(object) {
-        object.x += object.velocityX;
-        object.y += object.velocityY;
+        // Limit maximum velocity to prevent tunneling through platforms
+        const maxVelocity = 15; // Reduced from 20 for better collision detection
+        object.velocityX = Math.max(-maxVelocity, Math.min(maxVelocity, object.velocityX));
+        object.velocityY = Math.max(-maxVelocity, Math.min(maxVelocity, object.velocityY));
+        
+        // Move in smaller steps to prevent tunneling
+        const steps = Math.max(1, Math.ceil(Math.max(Math.abs(object.velocityX), Math.abs(object.velocityY)) / 5));
+        const stepX = object.velocityX / steps;
+        const stepY = object.velocityY / steps;
+        
+        for (let i = 0; i < steps; i++) {
+            object.x += stepX;
+            object.y += stepY;
+        }
     }
 
     // Check if object is within world bounds

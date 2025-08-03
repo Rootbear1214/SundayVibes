@@ -2,8 +2,8 @@ class MagicBlast {
     constructor(x, y, direction) {
         this.x = x;
         this.y = y;
-        this.width = 8;
-        this.height = 4;
+        this.width = 20; // Increased from 8 to 20 for bigger hit box
+        this.height = 12; // Increased from 4 to 12 for bigger hit box
         this.speed = 8;
         this.direction = direction; // 1 for right, -1 for left
         this.velocityX = this.speed * this.direction;

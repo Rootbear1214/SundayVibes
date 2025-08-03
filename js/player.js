@@ -63,6 +63,18 @@ class Player {
             console.error('Failed to load staff sprite');
         };
         
+        // Load sword weapon sprite
+        this.swordSprite = new Image();
+        this.swordSprite.src = 'sprites/weapons/sword.png';
+        this.swordLoaded = false;
+        this.swordSprite.onload = () => {
+            this.swordLoaded = true;
+            console.log('Sword sprite loaded successfully!');
+        };
+        this.swordSprite.onerror = () => {
+            console.error('Failed to load sword sprite');
+        };
+        
         // Animation properties for individual sprites
         this.currentFrame = 0;
         this.frameTimer = 0;
@@ -89,6 +101,9 @@ class Player {
         this.facing = 1; // 1 for right, -1 for left
         this.isAttacking = false;
         this.attackTimer = 0;
+        this.isPunching = false;
+        this.punchAnimationTimer = 0;
+        this.punchAnimationDuration = 20; // frames for sword swing animation
         
         // Magic blast system
         this.magicBlasts = [];
@@ -147,9 +162,11 @@ class Player {
         this.punchCooldown = this.maxCooldown;
         this.isAttacking = true;
         this.attackTimer = 15; // Attack animation duration
+        this.isPunching = true;
+        this.punchAnimationTimer = this.punchAnimationDuration;
         
         // TODO: Add punch hit detection logic here
-        console.log('Punch attack!');
+        console.log('Sword swing attack!');
     }
 
     rangedAttack() {
@@ -173,6 +190,13 @@ class Player {
             this.attackTimer--;
         } else {
             this.isAttacking = false;
+        }
+        
+        // Update punch animation timer
+        if (this.punchAnimationTimer > 0) {
+            this.punchAnimationTimer--;
+        } else {
+            this.isPunching = false;
         }
         
         // Update invulnerability timer
@@ -265,8 +289,47 @@ class Player {
                     }
                 }
                 
-                // Draw staff weapon if loaded
-                if (this.staffLoaded) {
+                ctx.restore();
+                
+                // Draw weapons based on current action (outside of sprite context)
+                if (this.isPunching && this.swordLoaded) {
+                    // Draw sword when punching
+                    ctx.save();
+                    ctx.imageSmoothingEnabled = false;
+                    
+                    // Calculate sword swing animation
+                    const swingProgress = 1 - (this.punchAnimationTimer / this.punchAnimationDuration);
+                    const swingAngle = Math.sin(swingProgress * Math.PI) * 90; // 0 to 90 degrees swing
+                    
+                    // Position sword relative to player
+                    const swordWidth = 50;
+                    const swordHeight = 50;
+                    let swordX, swordY;
+                    
+                    if (this.facing === -1) {
+                        // Facing left - sword on left side
+                        swordX = screenX - 20;
+                        swordY = screenY + 5;
+                        
+                        // Apply rotation for swing animation
+                        ctx.translate(swordX + swordWidth/2, swordY + swordHeight/2);
+                        ctx.rotate((-swingAngle - 45) * Math.PI / 180); // Swing from -45 to -135 degrees
+                        ctx.scale(-1, 1); // Flip horizontally for left facing
+                        ctx.drawImage(this.swordSprite, -swordWidth/2, -swordHeight/2, swordWidth, swordHeight);
+                    } else {
+                        // Facing right - sword on right side
+                        swordX = screenX + this.width - 30;
+                        swordY = screenY + 5;
+                        
+                        // Apply rotation for swing animation
+                        ctx.translate(swordX + swordWidth/2, swordY + swordHeight/2);
+                        ctx.rotate((swingAngle - 45) * Math.PI / 180); // Swing from -45 to 45 degrees
+                        ctx.drawImage(this.swordSprite, -swordWidth/2, -swordHeight/2, swordWidth, swordHeight);
+                    }
+                    
+                    ctx.restore();
+                } else if (this.staffLoaded) {
+                    // Draw staff weapon when not punching
                     ctx.save();
                     ctx.imageSmoothingEnabled = false;
                     
@@ -276,22 +339,21 @@ class Player {
                     let staffX, staffY;
                     
                     if (this.facing === -1) {
-                        // Facing left - staff on left side
-                        ctx.scale(-1, 1);
-                        staffX = -screenX - this.width - 10;
+                        // Facing left - staff on left side, flipped horizontally, closer to player
+                        staffX = screenX - 15; // Moved closer: -30 to -15
                         staffY = screenY + 10;
-                        ctx.drawImage(this.staffSprite, staffX, staffY, staffWidth, staffHeight);
+                        ctx.translate(staffX + staffWidth/2, staffY + staffHeight/2);
+                        ctx.scale(-1, 1); // Flip horizontally for left facing
+                        ctx.drawImage(this.staffSprite, -staffWidth/2, -staffHeight/2, staffWidth, staffHeight);
                     } else {
-                        // Facing right - staff on right side
-                        staffX = screenX + this.width - 10;
+                        // Facing right - staff on right side, closer to player
+                        staffX = screenX + this.width - 25; // Moved closer: -10 to -25
                         staffY = screenY + 10;
                         ctx.drawImage(this.staffSprite, staffX, staffY, staffWidth, staffHeight);
                     }
                     
                     ctx.restore();
                 }
-                
-                ctx.restore();
             } else {
                 // Fallback rectangle if sprite not loaded
                 ctx.fillStyle = this.color;
