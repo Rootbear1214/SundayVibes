@@ -8,6 +8,7 @@ class Game {
         this.physics = new Physics();
         this.world = new World();
         this.camera = new Camera(this.canvas.width, this.canvas.height);
+        this.enemyManager = new EnemyManager();
         
         // Initialize player at spawn position
         const spawn = this.world.getSpawnPosition();
@@ -48,6 +49,9 @@ class Game {
                 e.preventDefault();
             }
         });
+        
+        // Spawn enemies in the world
+        this.enemyManager.spawnEnemiesInWorld();
         
         console.log('Game initialized. Press F1 to toggle debug info.');
         console.log('Controls: A/D - Move, W - Jump, J - Punch, K - Ranged Attack');
@@ -102,6 +106,7 @@ class Game {
         // Update game objects
         this.player.update(this.input, this.physics);
         this.world.update();
+        this.enemyManager.update(this.physics, this.world.platforms, this.player);
         
         // Handle collisions
         this.world.checkCollisions(this.player, this.physics);
@@ -122,6 +127,9 @@ class Game {
         
         // Render world (includes background and platforms)
         this.world.render(this.ctx, this.camera);
+        
+        // Render enemies
+        this.enemyManager.render(this.ctx, this.camera);
         
         // Render player (unless dead)
         if (!this.isPlayerDead) {
@@ -204,9 +212,10 @@ class Game {
         this.ctx.fillText(`Camera: ${Math.round(this.camera.x)}, ${Math.round(this.camera.y)}`, this.canvas.width - 210, 45);
         this.ctx.fillText(`World Size: ${this.world.width}x${this.world.height}`, this.canvas.width - 210, 60);
         this.ctx.fillText(`Platforms: ${this.world.platforms.length}`, this.canvas.width - 210, 75);
-        this.ctx.fillText(`Player Facing: ${this.player.facing > 0 ? 'Right' : 'Left'}`, this.canvas.width - 210, 90);
-        this.ctx.fillText(`Attacking: ${this.player.isAttacking}`, this.canvas.width - 210, 105);
-        this.ctx.fillText(`Press F1 to toggle debug`, this.canvas.width - 210, 120);
+        this.ctx.fillText(`Enemies: ${this.enemyManager.getEnemyCount()}`, this.canvas.width - 210, 90);
+        this.ctx.fillText(`Player Facing: ${this.player.facing > 0 ? 'Right' : 'Left'}`, this.canvas.width - 210, 105);
+        this.ctx.fillText(`Attacking: ${this.player.isAttacking}`, this.canvas.width - 210, 120);
+        this.ctx.fillText(`Press F1 to toggle debug`, this.canvas.width - 210, 135);
         
         // Draw collision boxes
         this.ctx.strokeStyle = 'red';
@@ -223,6 +232,16 @@ class Game {
                 const screenX = platform.x - this.camera.x;
                 const screenY = platform.y - this.camera.y;
                 this.ctx.strokeRect(screenX, screenY, platform.width, platform.height);
+            }
+        });
+        
+        // Enemy collision boxes
+        this.ctx.strokeStyle = 'orange';
+        this.enemyManager.enemies.forEach(enemy => {
+            if (!enemy.isDead && this.camera.isVisible(enemy.x, enemy.y, enemy.width, enemy.height)) {
+                const screenX = enemy.x - this.camera.x;
+                const screenY = enemy.y - this.camera.y;
+                this.ctx.strokeRect(screenX, screenY, enemy.width, enemy.height);
             }
         });
         
