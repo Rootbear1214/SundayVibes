@@ -26,6 +26,12 @@ class Enemy {
         this.animationTimer = 0;
         this.bounceHeight = 0;
         this.bounceSpeed = 0.1;
+        this.jumpTimer = 0;
+        this.jumpCooldown = 60; // frames between jumps
+        this.isJumping = false;
+        this.jumpPhase = 0; // 0 = ground, 1 = squash, 2 = jump, 3 = air, 4 = land
+        this.squashAmount = 0;
+        this.stretchAmount = 0;
         
         // Combat properties
         this.damage = 1;
@@ -82,8 +88,23 @@ class Enemy {
     
     updateMovement() {
         if (this.type === 'slime') {
-            // Slimes move in a bouncing pattern
-            this.velocityX = this.moveSpeed * this.direction;
+            // Update jump timer
+            this.jumpTimer++;
+            
+            // Handle jumping animation phases
+            if (this.onGround && !this.isJumping && this.jumpTimer >= this.jumpCooldown) {
+                // Start jump sequence
+                this.isJumping = true;
+                this.jumpPhase = 1; // squash phase
+                this.jumpTimer = 0;
+            }
+            
+            if (this.isJumping) {
+                this.handleJumpAnimation();
+            } else {
+                // Normal movement when not jumping
+                this.velocityX = this.moveSpeed * this.direction;
+            }
             
             // Check if we've moved too far from start position
             if (Math.abs(this.x - this.startX) > this.patrolDistance) {
@@ -91,7 +112,54 @@ class Enemy {
             }
         }
     }
-    
+
+    handleJumpAnimation() {
+        switch (this.jumpPhase) {
+            case 1: // Squash phase - prepare to jump
+                this.squashAmount += 0.3;
+                this.velocityX = 0; // Stop horizontal movement during squash
+                if (this.squashAmount >= 1) {
+                    this.jumpPhase = 2;
+                    this.squashAmount = 1;
+                }
+                break;
+                
+            case 2: // Launch phase - apply jump velocity
+                this.velocityY = -6; // Jump upward
+                this.velocityX = this.moveSpeed * this.direction * 1.5; // Faster horizontal movement during jump
+                this.jumpPhase = 3;
+                this.squashAmount = 0;
+                this.stretchAmount = 1;
+                break;
+                
+            case 3: // Air phase - stretch while in air
+                if (this.velocityY > 0) {
+                    // Start falling, begin to compress
+                    this.stretchAmount -= 0.1;
+                    if (this.stretchAmount <= 0) {
+                        this.stretchAmount = 0;
+                        this.jumpPhase = 4;
+                    }
+                }
+                break;
+                
+            case 4: // Landing phase - squash on impact
+                if (this.onGround) {
+                    this.squashAmount += 0.2;
+                    this.velocityX *= 0.8; // Slow down horizontal movement
+                    if (this.squashAmount >= 0.8) {
+                        // End jump sequence
+                        this.isJumping = false;
+                        this.jumpPhase = 0;
+                        this.squashAmount = 0;
+                        this.stretchAmount = 0;
+                        this.jumpTimer = 0;
+                    }
+                }
+                break;
+        }
+    }
+
     checkPlatformCollisions(platforms, physics) {
         this.onGround = false;
         
@@ -187,45 +255,60 @@ class Enemy {
                 ctx.globalAlpha = alpha;
             }
             
-            // Draw slime body
-            ctx.fillStyle = this.color;
+            // Draw slime body with squash and stretch animation
+            ctx.fillStyle = '#44FF44'; // Green color for slime
             
             if (this.type === 'slime') {
-                // Draw slime as an oval/ellipse
+                // Calculate squash and stretch effects
+                let widthMultiplier = 1 + this.squashAmount * 0.5; // Wider when squashed
+                let heightMultiplier = 1 - this.squashAmount * 0.3; // Shorter when squashed
+                
+                if (this.stretchAmount > 0) {
+                    widthMultiplier = 1 - this.stretchAmount * 0.2; // Narrower when stretched
+                    heightMultiplier = 1 + this.stretchAmount * 0.4; // Taller when stretched
+                }
+                
+                const animatedWidth = this.width * widthMultiplier;
+                const animatedHeight = this.height * heightMultiplier;
+                
+                // Adjust Y position to keep slime grounded during squash
+                const yOffset = this.squashAmount > 0 ? (this.height - animatedHeight) : 0;
+                
+                // Draw slime as an oval/ellipse with animation
                 ctx.beginPath();
                 ctx.ellipse(
                     screenX + this.width / 2,
-                    screenY + this.height / 2,
-                    this.width / 2,
-                    this.height / 2,
+                    screenY + this.height / 2 + yOffset,
+                    animatedWidth / 2,
+                    animatedHeight / 2,
                     0, 0, 2 * Math.PI
                 );
                 ctx.fill();
                 
-                // Add shine effect
-                ctx.fillStyle = '#FF8888';
+                // Add shine effect (also animated)
+                ctx.fillStyle = '#88FF88'; // Lighter green shine
                 ctx.beginPath();
                 ctx.ellipse(
-                    screenX + this.width / 2 - 5,
-                    screenY + this.height / 2 - 3,
-                    this.width / 4,
-                    this.height / 4,
+                    screenX + this.width / 2 - 3,
+                    screenY + this.height / 2 - 2 + yOffset,
+                    (animatedWidth / 4) * 0.8,
+                    (animatedHeight / 4) * 0.8,
                     0, 0, 2 * Math.PI
                 );
                 ctx.fill();
                 
-                // Add simple eyes
+                // Add simple eyes (positioned relative to animated body)
                 ctx.fillStyle = '#000';
                 const eyeSize = 3;
-                ctx.fillRect(screenX + 6, screenY + 5, eyeSize, eyeSize);
-                ctx.fillRect(screenX + this.width - 9, screenY + 5, eyeSize, eyeSize);
+                const eyeYOffset = yOffset - (animatedHeight - this.height) * 0.3;
+                ctx.fillRect(screenX + 6, screenY + 5 + eyeYOffset, eyeSize, eyeSize);
+                ctx.fillRect(screenX + this.width - 9, screenY + 5 + eyeYOffset, eyeSize, eyeSize);
             }
             
             // Reset alpha
             ctx.globalAlpha = 1;
         }
     }
-    
     getCenterX() {
         return this.x + this.width / 2;
     }
@@ -312,14 +395,26 @@ class EnemyManager {
     
     // Spawn enemies at specific locations
     spawnEnemiesInWorld() {
-        // Spawn slimes on various platforms
-        this.addEnemy(250, 400, 'slime'); // On first jump-through platform
-        this.addEnemy(500, 350, 'slime'); // On solid platform
-        this.addEnemy(700, 300, 'slime'); // On jump-through platform
-        this.addEnemy(900, 250, 'slime'); // On solid platform
-        this.addEnemy(1150, 350, 'slime'); // On jump-through platform
-        this.addEnemy(1400, 300, 'slime'); // On solid platform
-        this.addEnemy(1600, 250, 'slime'); // On jump-through platform
+        // Spawn slimes on actual platforms (positioned just above platform surfaces)
+        // Lower level platforms
+        this.addEnemy(200, 448, 'slime'); // On platform at (150, 480)
+        this.addEnemy(400, 418, 'slime'); // On jump-through platform at (350, 450)
+        this.addEnemy(590, 448, 'slime'); // On platform at (550, 480)
+        this.addEnemy(810, 428, 'slime'); // On jump-through platform at (750, 460)
+        this.addEnemy(1000, 448, 'slime'); // On platform at (950, 480)
+        
+        // Mid-level platforms
+        this.addEnemy(150, 348, 'slime'); // On platform at (100, 380)
+        this.addEnemy(320, 318, 'slime'); // On jump-through platform at (280, 350)
+        this.addEnemy(510, 288, 'slime'); // On platform at (450, 320)
+        this.addEnemy(1100, 288, 'slime'); // On jump-through platform at (1050, 320)
+        this.addEnemy(1350, 268, 'slime'); // On platform at (1300, 300)
+        
+        // Upper level platforms
+        this.addEnemy(260, 188, 'slime'); // On platform at (200, 220)
+        this.addEnemy(640, 168, 'slime'); // On platform at (600, 200)
+        this.addEnemy(1050, 168, 'slime'); // On platform at (1000, 200)
+        this.addEnemy(1510, 148, 'slime'); // On platform at (1450, 180)
     }
     
     getEnemyCount() {

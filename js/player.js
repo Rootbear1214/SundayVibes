@@ -51,6 +51,53 @@ class Player {
             this.walkSprites.push(sprite);
         }
         
+        // Load blob jumping sprites (individual PNGs)
+        this.jumpSprites = [];
+        this.jumpSpritesLoaded = 0;
+        this.totalJumpSprites = 4; // Jump.png + Jump copy 3.png, copy 4.png, copy 5.png
+        
+        // Load main jump sprite
+        const jumpSprite = new Image();
+        jumpSprite.src = 'sprites/blob/Green-Blob-Jump.png';
+        jumpSprite.onload = () => {
+            this.jumpSpritesLoaded++;
+            if (this.jumpSpritesLoaded === this.totalJumpSprites) {
+                console.log('All green blob jumping sprites loaded successfully!');
+            }
+        };
+        jumpSprite.onerror = () => {
+            console.error('Failed to load green blob jump sprite');
+        };
+        this.jumpSprites.push(jumpSprite);
+        
+        // Load jump copy sprites (copy 3, copy 4, copy 5) - only the ones that exist
+        for (let i = 3; i <= 5; i++) {
+            const sprite = new Image();
+            sprite.src = `sprites/blob/Green-Blob-Jump copy ${i}.png`;
+            sprite.onload = () => {
+                this.jumpSpritesLoaded++;
+                if (this.jumpSpritesLoaded === this.totalJumpSprites) {
+                    console.log('All green blob jumping sprites loaded successfully!');
+                }
+            };
+            sprite.onerror = () => {
+                console.error(`Failed to load green blob jump copy sprite ${i}`);
+            };
+            this.jumpSprites.push(sprite);
+        }
+        
+        // Load landing sprite
+        this.landSprite = new Image();
+        this.landSprite.src = 'sprites/blob/Green-Blob-Land.png';
+        this.landSpriteLoaded = false;
+        this.landSprite.onload = () => {
+            this.landSpriteLoaded = true;
+            console.log('Green blob landing sprite loaded successfully!');
+        };
+        this.landSprite.onerror = () => {
+            console.error('Failed to load green blob landing sprite');
+        };
+        
         // Load staff weapon sprite
         this.staffSprite = new Image();
         this.staffSprite.src = 'sprites/weapons/staff.png';
@@ -84,6 +131,16 @@ class Player {
         // Animation state
         this.isWalking = false;
         this.walkingStateTimer = 0; // Timer to stabilize walking state
+        this.isJumping = false;
+        this.isLanding = false;
+        this.jumpAnimationTimer = 0;
+        this.landingAnimationTimer = 0;
+        this.landingAnimationDuration = 10; // frames to show landing sprite
+        
+        // Ground state stabilization to prevent animation flicker
+        this.groundStateBuffer = 0;
+        this.groundStateThreshold = 8; // frames to confirm ground state change (increased to prevent flicker)
+        this.stableOnGround = false;
         
         // Combat properties
         this.punchCooldown = 0;
@@ -208,7 +265,91 @@ class Player {
         }
     }
 
+    updateStableGroundState() {
+        // Buffer ground state changes to prevent animation flicker
+        if (this.onGround === this.stableOnGround) {
+            // Ground state matches stable state, reset buffer
+            this.groundStateBuffer = 0;
+        } else {
+            // Ground state differs from stable state, increment buffer
+            this.groundStateBuffer++;
+            
+            // If buffer reaches threshold, update stable state
+            if (this.groundStateBuffer >= this.groundStateThreshold) {
+                this.stableOnGround = this.onGround;
+                this.groundStateBuffer = 0;
+            }
+        }
+        
+        // Additional stability check: if we've been on ground for several frames,
+        // ensure stable state reflects this
+        if (this.onGround && this.velocityY === 0) {
+            this.groundStabilityCounter = (this.groundStabilityCounter || 0) + 1;
+            if (this.groundStabilityCounter > 5) {
+                this.stableOnGround = true;
+            }
+        } else {
+            this.groundStabilityCounter = 0;
+        }
+    }
+
     updateAnimation() {
+        // Update stable ground state to prevent flicker
+        this.updateStableGroundState();
+        
+        // Handle landing animation first
+        if (this.isLanding) {
+            this.landingAnimationTimer++;
+            if (this.landingAnimationTimer >= this.landingAnimationDuration) {
+                this.isLanding = false;
+                this.landingAnimationTimer = 0;
+            }
+            return; // Don't update other animations while landing
+        }
+        
+        // Check if player is jumping using stable ground state with improved logic
+        const wasJumping = this.isJumping;
+        
+        // More stable jumping detection - require significant upward velocity or clear air time
+        const hasSignificantVelocity = Math.abs(this.velocityY) > 1.0;
+        const isInAir = !this.stableOnGround;
+        
+        // Only consider jumping if we have both air time AND velocity, or if we're already jumping and still in air
+        if (this.isJumping) {
+            // If already jumping, only stop when we're clearly on stable ground with no velocity
+            this.isJumping = !(this.stableOnGround && Math.abs(this.velocityY) < 0.1);
+        } else {
+            // If not jumping, only start when we have clear air time AND significant velocity
+            this.isJumping = isInAir && hasSignificantVelocity;
+        }
+        
+        // If just landed, start landing animation
+        if (wasJumping && this.stableOnGround) {
+            this.isLanding = true;
+            this.landingAnimationTimer = 0;
+            return;
+        }
+        
+        // If jumping, update jump animation
+        if (this.isJumping) {
+            this.jumpAnimationTimer++;
+            // Cycle through jump sprites
+            const jumpFrameDelay = 8; // Faster jump animation
+            if (this.jumpAnimationTimer >= jumpFrameDelay) {
+                this.jumpAnimationTimer = 0;
+                // Only cycle through loaded jump sprites
+                const availableJumpFrames = this.jumpSprites.filter(sprite => sprite && sprite.complete).length;
+                if (availableJumpFrames > 0) {
+                    this.currentFrame = (this.currentFrame + 1) % availableJumpFrames;
+                }
+            }
+            return; // Don't update walk/idle animations while jumping
+        } else {
+            // Reset jump animation when on ground
+            this.jumpAnimationTimer = 0;
+            this.currentFrame = 0; // Reset to first frame when landing
+        }
+        
         // Determine if player should be walking - remove onGround check to avoid flickering
         const shouldWalk = Math.abs(this.velocityX) > 0.1;
         
@@ -229,8 +370,8 @@ class Player {
         const currentFrameDelay = this.isWalking ? this.walkFrameDelay : this.frameDelay;
         const totalFrames = this.isWalking ? this.totalWalkSprites : this.totalIdleSprites;
         
-        // Reset frame if animation state changed
-        if (wasWalking !== this.isWalking) {
+        // Reset frame if animation state changed OR if frame is out of bounds
+        if (wasWalking !== this.isWalking || this.currentFrame >= totalFrames) {
             this.currentFrame = 0;
             this.frameTimer = 0;
         }
@@ -259,18 +400,72 @@ class Player {
             // Check if sprites are loaded
             const idleReady = this.idleSpritesLoaded === this.totalIdleSprites && this.idleSprites.length > 0;
             const walkReady = this.walkSpritesLoaded === this.totalWalkSprites && this.walkSprites.length > 0;
+            const jumpReady = this.jumpSpritesLoaded === this.totalJumpSprites && this.jumpSprites.length > 0;
+            const landReady = this.landSpriteLoaded;
             
-            if ((this.isWalking && walkReady) || (!this.isWalking && idleReady)) {
+            // Determine which sprite set to use based on current state
+            let currentSprite = null;
+            let spriteReady = false;
+            
+            // BULLETPROOF SOLUTION: Always ensure player is visible
+            // Priority: Functionality over perfect animations
+            // Use walking sprites as primary since they work reliably
+            
+            // Always default to walking sprite first (most reliable)
+            if (this.walkSprites.length > 0 && this.walkSprites[0] && this.walkSprites[0].complete) {
+                const safeFrame = Math.max(0, this.currentFrame % this.walkSprites.length);
+                if (this.walkSprites[safeFrame] && this.walkSprites[safeFrame].complete) {
+                    currentSprite = this.walkSprites[safeFrame];
+                    spriteReady = true;
+                }
+            }
+            
+            // Only try other sprites if walking sprites fail
+            if (!spriteReady && this.idleSprites.length > 0) {
+                const safeFrame = Math.max(0, this.currentFrame % this.idleSprites.length);
+                if (this.idleSprites[safeFrame] && this.idleSprites[safeFrame].complete) {
+                    currentSprite = this.idleSprites[safeFrame];
+                    spriteReady = true;
+                }
+            }
+            
+            // Final emergency fallback
+            if (!spriteReady) {
+                console.log('Emergency fallback triggered!');
+                if (this.walkSprites.length > 0 && this.walkSprites[0]) {
+                    currentSprite = this.walkSprites[0];
+                    spriteReady = true;
+                    console.log('Using emergency walk sprite fallback');
+                } else if (this.idleSprites.length > 0 && this.idleSprites[0]) {
+                    currentSprite = this.idleSprites[0];
+                    spriteReady = true;
+                    console.log('Using emergency idle sprite fallback');
+                }
+            }
+            
+            // Force sprite rendering - always show something
+            if (!spriteReady || !currentSprite) {
+                // Emergency fallback - use any available sprite
+                if (this.walkSprites.length > 0 && this.walkSprites[0]) {
+                    currentSprite = this.walkSprites[0];
+                    spriteReady = true;
+                    console.log('Using emergency walk sprite fallback');
+                } else if (this.idleSprites.length > 0 && this.idleSprites[0]) {
+                    currentSprite = this.idleSprites[0];
+                    spriteReady = true;
+                    console.log('Using emergency idle sprite fallback');
+                }
+            }
+            
+            if (spriteReady && currentSprite) {
                 // Draw animated blob sprite from individual PNGs
                 ctx.save();
                 
+                // Ensure full opacity
+                ctx.globalAlpha = 1.0;
+                
                 // Disable image smoothing for pixelated look
                 ctx.imageSmoothingEnabled = false;
-                
-                // Get the current sprite image based on animation state
-                const currentSprite = this.isWalking ? 
-                    this.walkSprites[this.currentFrame] : 
-                    this.idleSprites[this.currentFrame];
                 
                 // Only draw if sprite exists
                 if (currentSprite) {

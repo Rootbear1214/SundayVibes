@@ -72,12 +72,12 @@ class MagicBlast {
             ctx.save();
 
             // Draw the magic blast line
-            ctx.strokeStyle = '#00FFFF'; // Cyan color
+            ctx.strokeStyle = '#FFFF00'; // Yellow color
             ctx.lineWidth = 3;
             ctx.lineCap = 'round';
             
             // Add glow effect
-            ctx.shadowColor = '#00FFFF';
+            ctx.shadowColor = '#FFFF00';
             ctx.shadowBlur = 10;
             
             ctx.beginPath();
@@ -122,7 +122,7 @@ class MagicParticle {
         this.active = true;
         
         // Color variations for magical effect
-        this.colors = ['#00FFFF', '#0080FF', '#40E0D0', '#00CED1'];
+        this.colors = ['#FFFF00', '#FFD700', '#FFA500', '#FFFF80'];
         this.color = this.colors[Math.floor(Math.random() * this.colors.length)];
     }
 
